@@ -1,0 +1,1 @@
+ALTER TABLE `Order` MODIFY `branchId` VARCHAR(191);

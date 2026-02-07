@@ -1,0 +1,395 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.lyd/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles enum
+enum Role {
+  ADMIN
+  MANAGER
+  BRANCH_USER
+  PACKAGER
+  DISPATCHER
+  ACCOUNTS
+}
+
+// Order status enum based on PRD Section 4.5
+enum OrderStatus {
+  UNDER_REVIEW
+  CONFIRM_PENDING
+  APPROVED_ORDER
+  ARRANGING
+  ARRANGED
+  SENT_FOR_PACKAGING
+  RAISED_ISSUE
+  RAISED_ISSUE_AFTER_DELIVERY
+  WAITING_FOR_BRANCH_CONFIRMATION
+  BRANCH_CONFIRMED_RESOLUTION
+  WAITING_FOR_MANAGER_REPLY
+  MANAGER_REPLIED
+  UNDER_PACKAGING
+  PACKAGING_COMPLETED
+  IN_TRANSIT
+  CONFIRM_ORDER_RECEIVED
+  CLOSED_ORDER
+}
+
+// Notification types
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRM_PENDING
+  ORDER_CONFIRMED
+  ORDER_ISSUE_RAISED
+  ORDER_MANAGER_REPLY
+  ORDER_UNDER_PACKAGING
+  ORDER_ARRANGING
+  ORDER_ARRANGED
+  ORDER_SENT_FOR_PACKAGING
+  ORDER_PACKAGING_COMPLETED
+  ORDER_IN_TRANSIT
+  ORDER_RECEIVED
+  ORDER_CLOSED
+  STOCK_LOW
+  SYSTEM_ALERT
+  NOTIFY_OUT_OF_STOCK_AVAILABLE
+}
+
+// New enum for arranging stages (keeps OrderStatus unchanged)
+enum ArrangingStage {
+  ARRANGING
+  ARRANGED
+  SENT_FOR_PACKAGING
+}
+
+// Users table - for login, roles, and user management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phoneNumber String? @map("phone")
+  role      Role     @default(BRANCH_USER)
+  branchId  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch          Branch?         @relation("UserBranch", fields: [branchId], references: [id])
+  orders          Order[]         @relation("OrderRequester")
+  notifications   Notification[]  @relation("UserNotifications")
+  managedBranches ManagerBranch[] @relation("ManagerAssignments")
+  managedOrders   Order[]         @relation("ManagerOrders")
+
+  branchAssignments UserBranchAssignment[]
+  repliedIssues   OrderIssue[] @relation("UserReplies")
+
+  // 🔥 REQUIRED OPPOSITE RELATIONS (fix P1012)
+  
+
+  @@map("users")
+}
+
+
+model Branch {
+  id             String   @id @default(cuid())
+  name           String
+  address        String
+  city           String
+  state          String
+  zipCode        String
+  phone          String?
+  email          String?
+  targetLocation String? @db.Text
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  users              User[]                 @relation("UserBranch")
+  orders             Order[]
+  items              Item[]                 @relation("BranchItems")
+  managerAssignments ManagerBranch[]        @relation("BranchAssignments")
+  targetLocations    BranchTargetLocation[]
+
+  // ✅ Add this relation
+  userAssignments UserBranchAssignment[]
+
+  @@map("branches")
+}
+
+// Manager-Branch assignments table
+model ManagerBranch {
+  id        String   @id @default(cuid())
+  managerId String // MANAGER user ID
+  branchId  String // Branch ID
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  manager User   @relation("ManagerAssignments", fields: [managerId], references: [id], onDelete: Cascade)
+  branch  Branch @relation("BranchAssignments", fields: [branchId], references: [id], onDelete: Cascade)
+
+  // Ensure unique manager-branch combinations
+  @@unique([managerId, branchId])
+  @@map("manager_branches")
+}
+
+// Generic user-branch assignment table to allow PACKAGER and DISPATCHER (and others) to be
+// assigned to multiple branches. This keeps manager-specific table separate.
+model UserBranchAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@map("user_branch_assignments")
+}
+
+// Items table - local copy of inventory, NOW INCLUDING 'Product' properties
+model Item {
+  id           String  @id @default(cuid())
+  boxHeroId    String  @unique
+  name         String
+  category     String?
+  sku          String? @unique
+  barcode      String?
+  unit         String?
+  currentStock Int     @default(0)
+
+  branchId        String?
+  isActive        Boolean  @default(true)
+  visibility      String   @default("Listed")
+  photoUrl        String?
+  cost            Decimal? @db.Decimal(10, 2)
+  price           Decimal? @db.Decimal(10, 2)
+  safetyStock     Int?
+  targetLocation  String?
+  storageLocation String?
+  dimension       String?
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch Branch? @relation("BranchItems", fields: [branchId], references: [id])
+
+  @@map("items")
+}
+
+// Join table linking branches to allowed/visible target locations
+model BranchTargetLocation {
+  id        String   @id @default(cuid())
+  branchId  String
+  location  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, location])
+  @@map("branch_target_locations")
+}
+
+// Orders table - for each stock request
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  status       OrderStatus @default(UNDER_REVIEW)
+  remarks      String?
+  managerReply String?
+  adminReply   String?
+  totalItems   Int         @default(0)
+  totalValue   Decimal?    @db.Decimal(10, 2)
+
+  requesterId String
+  branchId    String?
+  managerId   String?
+
+  requestedAt  DateTime  @default(now())
+  approvedAt   DateTime?
+  dispatchedAt DateTime?
+  receivedAt   DateTime?
+  autoCloseAt  DateTime? // calculated when receivedAt is set (56 working hours later)
+  closedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  requester     User           @relation("OrderRequester", fields: [requesterId], references: [id])
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  manager       User?          @relation("ManagerOrders", fields: [managerId], references: [id])
+  orderItems    OrderItem[]
+  tracking      Tracking?
+
+  expectedDeliveryTime DateTime?
+
+  notifications Notification[] @relation("OrderNotifications")
+  orderIssues   OrderIssue[]
+
+  arrangingStage       ArrangingStage?
+  arrangingStartedAt   DateTime?
+  arrangingCompletedAt DateTime?
+  sentForPackagingAt   DateTime?
+  packagingStartedAt   DateTime?
+  packagingCompletedAt DateTime?
+
+
+  arrangingMedia Json?
+  packagingMedia Json?
+  transitMedia   Json?
+
+  // 🔥 Required for IssueThread relation
+  issueThreads IssueThread[] @relation
+  receivedIssues OrderReceivedIssue[] @relation
+  @@map("orders")
+}
+
+
+// Post-delivery issue threads (chat-style) — branch can open a thread after delivery
+model IssueThread {
+  id         String         @id @default(cuid())
+  orderId    String
+  createdBy  String
+  createdAt  DateTime       @default(now())
+
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  messages   IssueMessage[]
+
+  @@map("issue_threads")
+}
+
+model IssueMessage {
+  id         String   @id @default(cuid())
+  threadId   String
+  senderId   String
+  senderRole String
+  text       String?
+  media      Json?    // JSON array of file paths saved under /uploads
+  createdAt  DateTime @default(now())
+
+  thread IssueThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@map("issue_messages")
+}
+
+// Order_Items table - specific items in an order
+model OrderItem {
+  id           String   @id @default(cuid())
+  qtyRequested Int
+  qtyApproved  Int?
+  qtyReceived  Int?
+  unitPrice    Decimal? @db.Decimal(10, 2)
+  totalPrice   Decimal? @db.Decimal(10, 2)
+  outOfStock   Boolean  @default(false)
+
+  orderId String
+  sku     String? // 🟢 store SKU directly, no foreign key link
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ✅ Relation to Order only (no Item relation now)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderIssues OrderIssue[]  // 🔗 link to OrderIssue table
+
+  @@map("order_items")
+}
+
+// Per-item order issues raised by branch users
+model OrderIssue {
+  id            String   @id @default(cuid())
+  orderId       String
+  itemId        String?
+  message       String         // 🗨️ The actual message text (branch or manager)
+  senderRole    String         // 🆕 'BRANCH_USER' | 'MANAGER' | 'ADMIN'
+  repliedBy     String?        // Manager/Admin ID (optional)
+  repliedAt     DateTime?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  repliedByUser User? @relation("UserReplies", fields: [repliedBy], references: [id], onDelete: SetNull)
+
+  @@map("order_issues")
+}
+
+
+// Tracking table - for courier details
+model Tracking {
+  id                String    @id @default(cuid())
+  trackingId        String? // Courier tracking number
+  courierName       String? // Courier company name
+  courierLink       String? // Tracking URL
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  notes             String?
+
+  // Foreign key
+  orderId String @unique
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("tracking")
+}
+
+
+
+
+// Notifications table - for logging alerts and system notifications
+model Notification {
+  id         String           @id @default(cuid())
+  type       NotificationType
+  title      String
+  message    String
+  isRead     Boolean          @default(false)
+  isEmail    Boolean          @default(false) // Whether email was sent
+  isWhatsApp Boolean          @default(false) // Whether WhatsApp was sent
+
+  // Foreign keys (optional - can be system-wide notifications)
+  userId  String?
+  orderId String?
+
+  // Timestamps
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  // Relations
+  user  User?  @relation("UserNotifications", fields: [userId], references: [id])
+  order Order? @relation("OrderNotifications", fields: [orderId], references: [id])
+
+  @@map("notifications")
+}
+
+// Item-wise issues reported at receiving
+model OrderReceivedIssue {
+  id        String   @id @default(cuid())
+  orderId   String
+  itemId    String?
+  reason    String
+  media     Json?    // JSON array of file paths (strings)
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_received_issues")
+}
