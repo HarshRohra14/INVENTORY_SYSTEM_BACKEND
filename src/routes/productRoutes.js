@@ -10,7 +10,8 @@ const {
   getAllTargetLocations,
   getProductsByBranchTargetLocations,
   fetchBoxHeroProducts, 
-  getItemBySkuController
+  getItemBySkuController,
+  getStockStats
 } = require('../controllers/productController');
 
 // Import middleware
@@ -38,4 +39,5 @@ router.get('/categories', getProductCategories);
 router.get('/target-locations', getAllTargetLocations);
 router.get('/by-branch-target-locations', getProductsByBranchTargetLocations);
 router.get('/fetch-boxhero', fetchBoxHeroProducts);
+router.get('/stock-stats', getStockStats);
 module.exports = router;

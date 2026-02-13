@@ -508,6 +508,77 @@ const getItemBySkuController = async (req, res) => {
   }
 };
 
+/**
+ * Get stock statistics for dashboard
+ * GET /api/products/stock-stats
+ */
+const getStockStats = async (req, res) => {
+  try {
+    console.log('📊 Fetching stock statistics...');
+    
+    // Get all items with stock information
+    const items = await prisma.item.findMany({
+      where: {
+        isActive: true
+      },
+      select: {
+        currentStock: true,
+        safetyStock: true,
+        name: true,
+        sku: true
+      }
+    });
+
+    console.log(`Found ${items.length} active items`);
+
+    // Calculate statistics
+    let inStock = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+    let attentionNeeded = 0;
+
+    items.forEach(item => {
+      const currentStock = item.currentStock || 0;
+      const safetyStock = item.safetyStock || 0;
+
+      if (currentStock === 0) {
+        outOfStock++;
+        attentionNeeded++;
+      } else if (currentStock <= safetyStock && safetyStock > 0) {
+        lowStock++;
+        attentionNeeded++;
+      } else {
+        inStock++;
+      }
+    });
+
+    const stats = {
+      inStock,
+      lowStock,
+      outOfStock,
+      attentionNeeded,
+      totalItems: items.length,
+      lastUpdated: new Date().toISOString()
+    };
+
+    console.log('Stock Statistics:', stats);
+
+    res.json({
+      success: true,
+      message: 'Stock statistics retrieved successfully',
+      data: stats
+    });
+
+  } catch (error) {
+    console.error('Stock stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch stock statistics',
+      error: error.message
+    });
+  }
+};
+
 
 module.exports = {
   refreshProducts,
@@ -516,5 +587,6 @@ module.exports = {
   getAllTargetLocations,
   getProductsByBranchTargetLocations,
   getItemBySkuController,
-  fetchBoxHeroProducts
+  fetchBoxHeroProducts,
+  getStockStats
 };
