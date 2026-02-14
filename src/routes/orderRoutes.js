@@ -64,13 +64,14 @@ router.get('/my-orders', getMyOrders);
 // Get all orders for branch users (branch-wide orders) - MUST be at the TOP to avoid conflicts
 // Fixed route conflict issue - moved to very top to prevent Express from treating 'branch-orders' as :orderId parameter
 // MINIMAL TEST ROUTE - just return simple JSON
-router.get('/branch-orders', requireBranchUser, (req, res) => {
-  console.log('🔍 BRANCH-ORDERS ROUTE HIT! MINIMAL TEST');
+// TEMPORARILY REMOVED requireBranchUser for debugging
+router.get('/branch-orders', (req, res) => {
+  console.log('🔍 BRANCH-ORDERS ROUTE HIT! MINIMAL TEST - NO MIDDLEWARE');
   return res.json({
     success: true,
     message: 'BRANCH-ORDERS ROUTE WORKS!',
     timestamp: new Date().toISOString(),
-    user: req.user
+    user: req.user || 'no user'
   });
 });
 
