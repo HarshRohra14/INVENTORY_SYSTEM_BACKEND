@@ -115,6 +115,16 @@ router.get('/test', (req, res) => {
   });
 });
 
+// Simple branch test endpoint (no auth required)
+router.get('/branch-test', (req, res) => {
+  console.log('🔍 BRANCH-TEST ROUTE HIT!');
+  res.json({ 
+    success: true, 
+    message: 'Branch test route working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Get attachments for an order
 router.get('/:orderId/attachments', authMiddleware, getOrderAttachmentsController);
 
