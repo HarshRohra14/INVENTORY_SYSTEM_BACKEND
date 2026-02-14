@@ -115,6 +115,7 @@ router.get('/:orderId/attachments', authMiddleware, getOrderAttachmentsControlle
 router.get('/:orderId/attachments/manager', requireManager, getManagerOrderAttachmentsController);
 
 // Get all orders for branch users (branch-wide orders) - MUST be before /:id route
+// Fixed route conflict issue - moved before /:id to prevent Express from treating 'branch-orders' as :id parameter
 router.get('/branch-orders', requireBranchUser, getBranchOrders);
 
 // Get specific order (must be LAST)
