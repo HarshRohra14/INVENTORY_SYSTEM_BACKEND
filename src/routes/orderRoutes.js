@@ -116,9 +116,15 @@ router.get('/:orderId/attachments/manager', requireManager, getManagerOrderAttac
 
 // Get all orders for branch users (branch-wide orders) - MUST be before /:id route
 // Fixed route conflict issue - moved before /:id to prevent Express from treating 'branch-orders' as :id parameter
-router.get('/branch-orders', requireBranchUser, getBranchOrders);
+router.get('/branch-orders', requireBranchUser, (req, res) => {
+  console.log('🔍 BRANCH-ORDERS ROUTE HIT!');
+  return getBranchOrders(req, res);
+});
 
 // Get specific order (must be LAST)
-router.get('/:id', getOrderByIdController);
+router.get('/:id', (req, res) => {
+  console.log('🔍 /:id ROUTE HIT with ID:', req.params.id);
+  return getOrderByIdController(req, res);
+});
 
 module.exports = router;
