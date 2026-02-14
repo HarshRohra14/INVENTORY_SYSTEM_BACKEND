@@ -95,6 +95,13 @@ router.put('/post-delivery-issue/:orderId', requireBranchUser, upload.array('fil
 // Report received item-wise issues with per-item media (FormData)
 router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), require('../controllers/orderController').reportReceivedIssuesController);
 
+// Get all orders for branch users (branch-wide orders) - MUST be before /:orderId routes
+// Fixed route conflict issue - moved before /:orderId to prevent Express from treating 'branch-orders' as :orderId parameter
+router.get('/branch-orders', requireBranchUser, (req, res) => {
+  console.log('🔍 BRANCH-ORDERS ROUTE HIT!');
+  return getBranchOrders(req, res);
+});
+
 // Fetch per-order issues (keep below arranging-stage)
 router.get('/:orderId/issues', getOrderIssuesController);
 
@@ -113,13 +120,6 @@ router.get('/:orderId/attachments', authMiddleware, getOrderAttachmentsControlle
 
 // Get attachments for an order (manager access)
 router.get('/:orderId/attachments/manager', requireManager, getManagerOrderAttachmentsController);
-
-// Get all orders for branch users (branch-wide orders) - MUST be before /:id route
-// Fixed route conflict issue - moved before /:id to prevent Express from treating 'branch-orders' as :id parameter
-router.get('/branch-orders', requireBranchUser, (req, res) => {
-  console.log('🔍 BRANCH-ORDERS ROUTE HIT!');
-  return getBranchOrders(req, res);
-});
 
 // Get specific order (must be LAST)
 router.get('/:id', (req, res) => {
