@@ -61,6 +61,13 @@ router.post('/', requireBranchUser, createOrderController);
 // Get user's orders
 router.get('/my-orders', getMyOrders);
 
+// Get all orders for branch users (branch-wide orders) - MUST be at the TOP to avoid conflicts
+// Fixed route conflict issue - moved to very top to prevent Express from treating 'branch-orders' as :orderId parameter
+router.get('/branch-orders', requireBranchUser, (req, res) => {
+  console.log('🔍 BRANCH-ORDERS ROUTE HIT!');
+  return getBranchOrders(req, res);
+});
+
 // Manager-specific routes
 router.get(
   '/manager/pending',
@@ -92,47 +99,11 @@ router.put('/confirm-received/:orderId', requireBranchUser, upload.array('media'
 // Post-delivery issue thread (branch users create)
 router.put('/post-delivery-issue/:orderId', requireBranchUser, upload.array('files', 20), require('../controllers/orderController').postDeliveryIssueController);
 
-// Get all orders for branch users (branch-wide orders) - MUST be before ALL :orderId routes
-// Fixed route conflict issue - moved before :orderId to prevent Express from treating 'branch-orders-list' as :orderId parameter
-// Using exact match to avoid conflicts
-// Temporarily removed requireBranchUser for debugging
-// Changed route name to avoid potential conflicts
-router.get('/branch-orders-list', (req, res) => {
-  console.log('🔍 BRANCH-ORDERS-LIST ROUTE HIT - NO MIDDLEWARE!');
-  return getBranchOrders(req, res);
-});
-
 // Report received item-wise issues with per-item media (FormData)
 router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), require('../controllers/orderController').reportReceivedIssuesController);
 
-// Also try with exact path match
-router.get('/branch-orders/', (req, res) => {
-  console.log('🔍 BRANCH-ORDERS/ ROUTE HIT - NO MIDDLEWARE!');
-  return getBranchOrders(req, res);
-});
-
 // Fetch per-order issues (keep below arranging-stage)
 router.get('/:orderId/issues', getOrderIssuesController);
-
-// Test endpoint
-router.get('/test', (req, res) => {
-  console.log('🔍 TEST ENDPOINT HIT - Server is working!');
-  res.json({ 
-    success: true, 
-    message: 'Server is working!',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Simple branch test endpoint (no auth required)
-router.get('/branch-test', (req, res) => {
-  console.log('🔍 BRANCH-TEST ROUTE HIT!');
-  res.json({ 
-    success: true, 
-    message: 'Branch test route working!',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Get attachments for an order
 router.get('/:orderId/attachments', authMiddleware, getOrderAttachmentsController);
