@@ -377,6 +377,101 @@ const getUserOrders = async (userId, options = {}) => {
 
 
 /**
+ * Get all orders for a specific branch
+ * @param {string} branchId - ID of the branch
+ * @param {Object} options - Query options
+ * @returns {Object} Branch orders with pagination
+ */
+const getBranchOrdersService = async (branchId, options = {}) => {
+  try {
+    const { page = 1, limit = 20, status } = options;
+    const skip = (page - 1) * limit;
+
+    // Build where clause for branch
+    const where = { branchId: branchId };
+    if (status) {
+      where.status = status;
+    }
+
+    // Fetch orders and total count in parallel
+    const [orders, totalCount] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          branch: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          requester: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          orderItems: {
+            select: {
+              id: true,
+              quantity: true,
+              item: {
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  currentStock: true
+                }
+              }
+            }
+          },
+          _count: {
+            select: {
+              orderIssues: true
+            }
+          }
+        },
+        orderBy: [
+          { createdAt: 'desc' }
+        ],
+        skip,
+        take: limit
+      }),
+      prisma.order.count({ where })
+    ]);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    return {
+      success: true,
+      data: {
+        orders,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalCount,
+          hasNextPage,
+          hasPrevPage,
+          limit
+        }
+      }
+    };
+  } catch (error) {
+    console.error('Get branch orders error:', error);
+    return {
+      success: false,
+      message: 'Failed to fetch branch orders',
+      error: error.message
+    };
+  }
+};
+
+
+/**
  * Get a single order by ID (with authorization check)
  * @param {string} orderId - ID of the order
  * @param {string} userId - ID of the user requesting the order
@@ -2597,6 +2692,7 @@ const updateArrangingRemarks = async (orderId, userId, remarks) => {
 module.exports = {
   createOrder,
   getUserOrders,
+  getBranchOrdersService,
   getOrderById,
   getManagerPendingOrders,
   approveOrder,

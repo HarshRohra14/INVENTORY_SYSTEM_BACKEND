@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   createOrderController,
   getMyOrders,
+  getBranchOrders,
   getOrderByIdController,
   getManagerPendingOrdersController,
   approveOrderController,
@@ -59,6 +60,9 @@ router.post('/', requireBranchUser, createOrderController);
 
 // Get user's orders
 router.get('/my-orders', getMyOrders);
+
+// Get all orders for branch users (branch-wide orders)
+router.get('/branch-orders', requireBranchUser, getBranchOrders);
 
 // Manager-specific routes
 router.get(

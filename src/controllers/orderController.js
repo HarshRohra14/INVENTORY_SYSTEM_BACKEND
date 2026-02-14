@@ -88,6 +88,68 @@ const createOrderController = async (req, res) => {
 };
 
 /**
+ * Get all orders for branch users (branch-wide orders)
+ * GET /api/orders/branch-orders
+ */
+const getBranchOrders = async (req, res) => {
+  try {
+    const schema = Joi.object({
+      page: Joi.number().integer().min(1).optional(),
+      limit: Joi.number().integer().min(1).max(100).optional(),
+      status: Joi.string()
+        .valid(
+          'UNDER_REVIEW',
+          'ACCEPTED_ORDER',
+          'UNDER_PACKAGING',
+          'IN_TRANSIT',
+          'RECEIVED',
+          'CLOSED',
+          'ARRANGING',
+          'ARRANGED',
+          'SENT_FOR_PACKAGING'
+        )
+        .optional(),
+    });
+
+    const { error, value } = schema.validate(req.query);
+    if (error)
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map((d) => d.message),
+      });
+
+    const { page = 1, limit = 20, status } = value;
+    
+    // Get branch ID from authenticated user
+    const userBranchId = req.user.branchId;
+    
+    if (!userBranchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not assigned to any branch',
+      });
+    }
+
+    const result = await getBranchOrdersService(userBranchId, { page, limit, status });
+
+    if (!result.success)
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+
+    res.json({ success: true, data: result.data });
+  } catch (error) {
+    console.error('Get branch orders controller error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching branch orders.',
+    });
+  }
+};
+
+/**
  * Get current user's orders
  * GET /api/orders/my-orders
  */
@@ -914,6 +976,7 @@ const updateArrangingRemarksController = async (req, res) => {
 module.exports = {
   createOrderController,
   getMyOrders,
+  getBranchOrders,
   getOrderByIdController,
   getManagerPendingOrdersController,
   approveOrderController,
