@@ -61,6 +61,16 @@ router.post('/', requireBranchUser, createOrderController);
 // Get user's orders
 router.get('/my-orders', getMyOrders);
 
+// COMPLETELY NEW TEST ROUTE - different path
+router.get('/test-branch-orders', (req, res) => {
+  console.log('🔍 TEST-BRANCH-ORDERS ROUTE HIT!');
+  return res.json({
+    success: true,
+    message: 'TEST-BRANCH-ORDERS ROUTE WORKS!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Get all orders for branch users (branch-wide orders) - MUST be at the TOP to avoid conflicts
 // Fixed route conflict issue - moved to very top to prevent Express from treating 'branch-orders' as :orderId parameter
 // MINIMAL TEST ROUTE - just return simple JSON
