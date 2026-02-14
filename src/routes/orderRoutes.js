@@ -99,8 +99,9 @@ router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), 
 // Fixed route conflict issue - moved before /:orderId to prevent Express from treating 'branch-orders' as :orderId parameter
 // Using exact match to avoid conflicts
 // Temporarily removed requireBranchUser for debugging
-router.get('/branch-orders', (req, res) => {
-  console.log('🔍 BRANCH-ORDERS ROUTE HIT - NO MIDDLEWARE!');
+// Changed route name to avoid potential conflicts
+router.get('/branch-orders-list', (req, res) => {
+  console.log('🔍 BRANCH-ORDERS-LIST ROUTE HIT - NO MIDDLEWARE!');
   return getBranchOrders(req, res);
 });
 
