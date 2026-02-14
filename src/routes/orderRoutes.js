@@ -61,9 +61,6 @@ router.post('/', requireBranchUser, createOrderController);
 // Get user's orders
 router.get('/my-orders', getMyOrders);
 
-// Get all orders for branch users (branch-wide orders)
-router.get('/branch-orders', requireBranchUser, getBranchOrders);
-
 // Manager-specific routes
 router.get(
   '/manager/pending',
@@ -116,6 +113,9 @@ router.get('/:orderId/attachments', authMiddleware, getOrderAttachmentsControlle
 
 // Get attachments for an order (manager access)
 router.get('/:orderId/attachments/manager', requireManager, getManagerOrderAttachmentsController);
+
+// Get all orders for branch users (branch-wide orders) - MUST be before /:id route
+router.get('/branch-orders', requireBranchUser, getBranchOrders);
 
 // Get specific order (must be LAST)
 router.get('/:id', getOrderByIdController);
