@@ -92,11 +92,8 @@ router.put('/confirm-received/:orderId', requireBranchUser, upload.array('media'
 // Post-delivery issue thread (branch users create)
 router.put('/post-delivery-issue/:orderId', requireBranchUser, upload.array('files', 20), require('../controllers/orderController').postDeliveryIssueController);
 
-// Report received item-wise issues with per-item media (FormData)
-router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), require('../controllers/orderController').reportReceivedIssuesController);
-
-// Get all orders for branch users (branch-wide orders) - MUST be before /:orderId routes
-// Fixed route conflict issue - moved before /:orderId to prevent Express from treating 'branch-orders' as :orderId parameter
+// Get all orders for branch users (branch-wide orders) - MUST be before ALL :orderId routes
+// Fixed route conflict issue - moved before :orderId to prevent Express from treating 'branch-orders-list' as :orderId parameter
 // Using exact match to avoid conflicts
 // Temporarily removed requireBranchUser for debugging
 // Changed route name to avoid potential conflicts
@@ -104,6 +101,9 @@ router.get('/branch-orders-list', (req, res) => {
   console.log('🔍 BRANCH-ORDERS-LIST ROUTE HIT - NO MIDDLEWARE!');
   return getBranchOrders(req, res);
 });
+
+// Report received item-wise issues with per-item media (FormData)
+router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), require('../controllers/orderController').reportReceivedIssuesController);
 
 // Also try with exact path match
 router.get('/branch-orders/', (req, res) => {
