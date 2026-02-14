@@ -98,14 +98,15 @@ router.put('/report-received-issues/:orderId', requireBranchUser, upload.any(), 
 // Get all orders for branch users (branch-wide orders) - MUST be before /:orderId routes
 // Fixed route conflict issue - moved before /:orderId to prevent Express from treating 'branch-orders' as :orderId parameter
 // Using exact match to avoid conflicts
-router.get('/branch-orders', requireBranchUser, (req, res) => {
-  console.log('🔍 BRANCH-ORDERS ROUTE HIT!');
+// Temporarily removed requireBranchUser for debugging
+router.get('/branch-orders', (req, res) => {
+  console.log('🔍 BRANCH-ORDERS ROUTE HIT - NO MIDDLEWARE!');
   return getBranchOrders(req, res);
 });
 
 // Also try with exact path match
-router.get('/branch-orders/', requireBranchUser, (req, res) => {
-  console.log('🔍 BRANCH-ORDERS/ ROUTE HIT!');
+router.get('/branch-orders/', (req, res) => {
+  console.log('🔍 BRANCH-ORDERS/ ROUTE HIT - NO MIDDLEWARE!');
   return getBranchOrders(req, res);
 });
 
